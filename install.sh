@@ -517,6 +517,18 @@ aw_collect_ssh_key() {
   aw_resolve_ssh_key "$key_source"
 }
 
+aw_prepare_live_tools() {
+  [ "$AW_CONTEXT" = "live" ] || return 0
+  aw_have lsblk && return 0
+  aw_info "installing live-media disk inspection tools"
+  if ! apk add --no-cache \
+    --repository "https://dl-cdn.alpinelinux.org/alpine/v${AW_SUPPORTED_RELEASE}/main" \
+    util-linux; then
+    aw_die "could not install util-linux; configure networking on the live ISO and retry"
+  fi
+  aw_have lsblk || aw_die "lsblk is unavailable after installing util-linux"
+}
+
 aw_list_candidate_disks() {
   aw_have lsblk || return 0
   lsblk -dnpo NAME,TYPE,SIZE,MODEL,SERIAL,RM 2>/dev/null | while IFS= read -r disk_line; do
@@ -1419,6 +1431,7 @@ aw_load_resume_state() {
 aw_install() {
   aw_detect_context
   aw_preflight
+  aw_prepare_live_tools
   if [ "$AW_CONTEXT" = "installed" ] && [ -r "$AW_STATE_DIR/state.env" ]; then
     aw_load_resume_state
     AW_DEFAULTS=1

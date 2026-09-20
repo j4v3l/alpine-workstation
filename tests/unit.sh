@@ -139,5 +139,32 @@ aw_state_set AW_EDGE_PACKAGES_CSV 'ghostty@edge-community,hyfetch@edge-testing'
 if [ "$(aw_state_get AW_DESKTOP)" = "gnome" ]; then pass "state returns latest value"; else fail "state returns latest value"; fi
 assert_contains "state accepts tagged edge package list" "$(aw_state_get AW_EDGE_PACKAGES_CSV)" "hyfetch@edge-testing"
 
+if (
+  AW_CONTEXT=installed
+  apk() { return 1; }
+  aw_prepare_live_tools
+); then
+  pass "installed mode does not bootstrap live tools"
+else
+  fail "installed mode does not bootstrap live tools"
+fi
+
+if (
+  AW_CONTEXT=live
+  live_tools_ready=0
+  aw_have() { [ "$1" = "lsblk" ] && [ "$live_tools_ready" -eq 1 ]; }
+  apk() {
+    case " $* " in
+      *"/v3.24/main"*" util-linux "*) live_tools_ready=1 ;;
+      *) return 1 ;;
+    esac
+  }
+  aw_prepare_live_tools >/dev/null
+); then
+  pass "live mode bootstraps disk inspection tools"
+else
+  fail "live mode bootstraps disk inspection tools"
+fi
+
 printf '1..%s\n' "$TESTS"
 [ "$FAILURES" -eq 0 ]
