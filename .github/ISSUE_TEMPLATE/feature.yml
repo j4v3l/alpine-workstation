@@ -1,0 +1,21 @@
+name: Feature request
+description: Propose a focused improvement
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What workstation task is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed behavior
+      description: Describe the user-visible result and safe default.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Alternatives
+      description: What other approaches did you consider?
