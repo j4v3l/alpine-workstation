@@ -535,9 +535,7 @@ aw_list_candidate_disks() {
     disk_name=$(printf '%s\n' "$disk_line" | awk '{print $1}')
     disk_type=$(printf '%s\n' "$disk_line" | awk '{print $2}')
     [ "$disk_type" = "disk" ] || continue
-    if lsblk -lnpo MOUNTPOINT "$disk_name" 2>/dev/null | awk 'NF {found=1} END {exit !found}'; then
-      continue
-    fi
+    aw_validate_disk "$disk_name" || continue
     printf '%s\n' "$disk_line"
   done
 }
@@ -545,6 +543,11 @@ aw_list_candidate_disks() {
 aw_validate_disk() {
   [ -b "$1" ] || return 1
   [ "$(lsblk -dnro TYPE "$1" 2>/dev/null)" = "disk" ] || return 1
+  disk_size=$(lsblk -bdnro SIZE "$1" 2>/dev/null || true)
+  case "$disk_size" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  [ "$disk_size" -gt 0 ] || return 1
   if lsblk -lnpo MOUNTPOINT "$1" 2>/dev/null | awk 'NF {found=1} END {exit !found}'; then
     return 1
   fi
@@ -888,8 +891,12 @@ EOF
 }
 
 aw_ensure_user() {
+  user_created=0
   if ! id "$AW_USER" >/dev/null 2>&1; then
     adduser -D -s /bin/zsh "$AW_USER"
+    user_created=1
+  fi
+  if [ "$user_created" -eq 1 ] || [ "$AW_LIVE_TARGET" -eq 1 ]; then
     aw_print "Set the local password for $AW_USER."
     passwd "$AW_USER"
   fi
