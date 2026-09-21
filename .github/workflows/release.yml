@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Verify signed tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ref_json=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME")
+          object_type=$(jq -r '.object.type' <<<"$ref_json")
+          object_sha=$(jq -r '.object.sha' <<<"$ref_json")
+          test "$object_type" = tag
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$object_sha" --jq '.verification.verified')" = true
+      - name: Build release asset
+        run: |
+          test "v$(cat VERSION)" = "$GITHUB_REF_NAME"
+          scripts/build.sh dist/alpine-workstation
+          (cd dist && sha256sum alpine-workstation >alpine-workstation.sha256)
+          cmp install.sh dist/alpine-workstation
+      - name: Attest installer provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: dist/alpine-workstation
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/alpine-workstation \
+            dist/alpine-workstation.sha256 \
+            --verify-tag \
+            --generate-notes \
+            --title "Alpine Workstation $GITHUB_REF_NAME"

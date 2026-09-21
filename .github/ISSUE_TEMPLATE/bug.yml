@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a reproducible installer or workstation problem
+title: "bug: "
+labels: [bug]
+body:
+  - type: checkboxes
+    attributes:
+      label: Preflight
+      options:
+        - label: I am using Alpine Linux 3.24.x on x86_64.
+          required: true
+        - label: I checked existing issues and the troubleshooting guide.
+          required: true
+  - type: input
+    attributes:
+      label: Release
+      description: Installer release or commit.
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Context
+      options: [Installed Alpine, Live ISO, QEMU or KVM, Other]
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include the exact command, expected result, and actual result.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Diagnostics
+      description: Paste relevant doctor output and redacted log lines. Never include passwords or private keys.
+      render: shell

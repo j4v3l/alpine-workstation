@@ -6,13 +6,87 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  quality:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Check whitespace
-        run: git diff --check HEAD^
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Install linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+          go install mvdan.cc/sh/v3/cmd/shfmt@v3.12.0
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          python -m pip install --disable-pip-version-check yamllint==1.37.1
+          npm install --global markdownlint-cli2@0.18.1
+      - name: Check changed-file whitespace
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git diff --check "origin/$BASE_REF...HEAD"
+          else
+            git diff --check HEAD^ HEAD
+          fi
+      - name: Check shell
+        run: |
+          shellcheck -x -s sh install.sh tests/*.sh tests/qemu/*.sh scripts/*.sh
+          shfmt -d -i 2 -ci install.sh tests/*.sh tests/qemu/*.sh scripts/*.sh
+      - name: Check workflows and documentation
+        run: |
+          actionlint
+          yamllint .github .yamllint.yml
+          markdownlint-cli2
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Run unit suite
+        run: sh tests/unit.sh
+      - name: Verify standalone bundle
+        run: |
+          scripts/build.sh dist/alpine-workstation
+          cmp install.sh dist/alpine-workstation
+
+  alpine-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate Alpine 3.24 packages and behavior
+        run: |
+          docker run --rm -v "$PWD:/work:ro" -w /work alpine:3.24 sh -c '
+            set -eu
+            printf "%s\n" \
+              "https://dl-cdn.alpinelinux.org/alpine/v3.24/main" \
+              "https://dl-cdn.alpinelinux.org/alpine/v3.24/community" \
+              >/etc/apk/repositories
+            sh scripts/check-packages.sh
+            sh scripts/smoke.sh
+            sh tests/unit.sh
+          '
+
+  quality:
+    if: always()
+    needs: [lint, unit, alpine-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all checks
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+          SMOKE_RESULT: ${{ needs.alpine-smoke.result }}
+        run: |
+          test "$LINT_RESULT" = success
+          test "$UNIT_RESULT" = success
+          test "$SMOKE_RESULT" = success
