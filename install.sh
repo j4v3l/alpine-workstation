@@ -980,17 +980,17 @@ aw_install_oh_my_zsh() {
   mkdir -p "$(dirname "$omz_dir")"
   chown -R "$AW_USER:$AW_USER" "$user_home/.local"
   if [ -d "$omz_dir/.git" ]; then
-    if [ -z "$(doas -u "$AW_USER" git -C "$omz_dir" status --porcelain 2>/dev/null)" ]; then
-      doas -u "$AW_USER" git -C "$omz_dir" fetch --quiet origin "$AW_OMZ_REVISION"
-      doas -u "$AW_USER" git -C "$omz_dir" checkout --quiet "$AW_OMZ_REVISION"
+    if [ -z "$(runuser -u "$AW_USER" -- git -C "$omz_dir" status --porcelain 2>/dev/null)" ]; then
+      runuser -u "$AW_USER" -- git -C "$omz_dir" fetch --quiet origin "$AW_OMZ_REVISION"
+      runuser -u "$AW_USER" -- git -C "$omz_dir" checkout --quiet "$AW_OMZ_REVISION"
     else
       aw_warn "$omz_dir has local changes; leaving it unchanged"
     fi
   elif [ -e "$omz_dir" ]; then
     aw_warn "$omz_dir already exists and is not managed; Oh My Zsh was not installed"
   else
-    doas -u "$AW_USER" git clone --quiet https://github.com/ohmyzsh/ohmyzsh.git "$omz_dir"
-    doas -u "$AW_USER" git -C "$omz_dir" checkout --quiet "$AW_OMZ_REVISION"
+    runuser -u "$AW_USER" -- git clone --quiet https://github.com/ohmyzsh/ohmyzsh.git "$omz_dir"
+    runuser -u "$AW_USER" -- git -C "$omz_dir" checkout --quiet "$AW_OMZ_REVISION"
   fi
 }
 
