@@ -45,6 +45,16 @@ assert_contains() {
   esac
 }
 
+assert_not_contains() {
+  label=$1
+  haystack=$2
+  needle=$3
+  case "$haystack" in
+    *"$needle"*) fail "$label" ;;
+    *) pass "$label" ;;
+  esac
+}
+
 printf 'TAP version 13\n'
 
 assert_true "valid user name" aw_valid_name alpine_user
@@ -113,6 +123,12 @@ capture=""
 aw_detect_gpu() { printf '%s\n' '3D controller: NVIDIA Corporation Device'; }
 aw_hardware_packages >/dev/null
 assert_contains "NVIDIA graphics selects firmware" "$capture" "linux-firmware-nvidia"
+
+capture=""
+# shellcheck disable=SC2329
+aw_detect_gpu() { printf '%s\n' 'VGA compatible controller: Red Hat, Inc. Virtio 1.0 GPU'; }
+aw_hardware_packages
+assert_not_contains "virtual graphics does not select AMD drivers" "$capture" "mesa-vulkan-ati"
 
 AW_FINGERPRINT=no
 assert_false "fingerprint no mode skips detection" aw_detect_fingerprint

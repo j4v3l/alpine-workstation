@@ -781,13 +781,13 @@ EOF
 aw_hardware_packages() {
   hardware_packages="mesa-dri-gallium mesa-va-gallium"
   gpu_info=$(aw_detect_gpu || true)
-  if printf '%s\n' "$gpu_info" | grep -Eiq 'Intel'; then
+  if printf '%s\n' "$gpu_info" | grep -Eiq 'Intel Corporation|\[8086:'; then
     hardware_packages="$hardware_packages mesa-vulkan-intel intel-media-driver linux-firmware-i915"
   fi
-  if printf '%s\n' "$gpu_info" | grep -Eiq 'AMD|ATI'; then
+  if printf '%s\n' "$gpu_info" | grep -Eiq 'Advanced Micro Devices|AMD/ATI|\[1002:'; then
     hardware_packages="$hardware_packages mesa-vulkan-ati linux-firmware-amdgpu"
   fi
-  if printf '%s\n' "$gpu_info" | grep -Eiq 'NVIDIA'; then
+  if printf '%s\n' "$gpu_info" | grep -Eiq 'NVIDIA|\[10de:'; then
     hardware_packages="$hardware_packages linux-firmware-nvidia"
     aw_warn "NVIDIA detected: Alpine supports Nouveau, not the proprietary driver. CUDA and some power/performance features will be unavailable."
   fi
@@ -841,12 +841,17 @@ aw_configure_services() {
   aw_enable_service dbus default
   aw_enable_service elogind boot
   aw_enable_service networkmanager default
+  aw_enable_service wpa_supplicant default
   aw_enable_service bluetooth default
   aw_enable_service cups default
   aw_enable_service avahi-daemon default
   aw_enable_service nftables default
   aw_enable_service power-profiles-daemon default
   aw_enable_service qemu-guest-agent default
+  if [ -e /etc/init.d/networkmanager ]; then
+    rc-update del networking boot >/dev/null 2>&1 || true
+    rc-update del networking default >/dev/null 2>&1 || true
+  fi
 
   aw_write_managed /etc/NetworkManager/conf.d/10-alpine-workstation.conf 0644 root:root <<'EOF'
 [main]
